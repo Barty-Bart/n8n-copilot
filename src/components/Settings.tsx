@@ -35,17 +35,20 @@ const Settings = () => {
       setStatusText('Not an n8n page');
     }
 
-    // Load saved settings
-    // In a real extension, this would use chrome.storage.sync.get
-    const savedSettings = localStorage.getItem('n8nCopilotSettings');
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      if (settings.openaiKey) setOpenaiKey(settings.openaiKey);
-      if (settings.anthropicKey) setAnthropicKey(settings.anthropicKey);
-      if (settings.n8nApiUrl) setN8nApiUrl(settings.n8nApiUrl);
-      if (settings.n8nApiKey) setN8nApiKey(settings.n8nApiKey);
-      if (settings.activeProvider) setActiveProvider(settings.activeProvider);
-    }
+    // Load saved settings from chrome.storage
+    chrome.storage.sync.get([
+      'openaiKey',
+      'anthropicKey',
+      'activeProvider',
+      'n8nApiUrl',
+      'n8nApiKey'
+    ], (result) => {
+      if (result.openaiKey) setOpenaiKey(result.openaiKey);
+      if (result.anthropicKey) setAnthropicKey(result.anthropicKey);
+      if (result.n8nApiUrl) setN8nApiUrl(result.n8nApiUrl);
+      if (result.n8nApiKey) setN8nApiKey(result.n8nApiKey);
+      if (result.activeProvider) setActiveProvider(result.activeProvider);
+    });
   }, []);
 
   // Handle provider toggle selection
@@ -94,7 +97,7 @@ const Settings = () => {
     
     if (!n8nApiValid) return;
     
-    // Save settings
+    // Save settings to chrome.storage
     const settings = {
       openaiKey,
       anthropicKey,
@@ -103,23 +106,23 @@ const Settings = () => {
       n8nApiKey
     };
     
-    // In a real extension, this would use chrome.storage.sync.set
-    localStorage.setItem('n8nCopilotSettings', JSON.stringify(settings));
-    
-    // Show save confirmation
-    setSaveButtonText('Saved!');
-    
-    // Test n8n API connection if provided
-    if (n8nApiUrl && n8nApiKey) {
-      const isConnected = await testN8nApiConnection(n8nApiUrl, n8nApiKey);
-      if (isConnected) {
-        setStatusText(prev => prev + ' (n8n API connected)');
+    chrome.storage.sync.set(settings, () => {
+      // Show save confirmation
+      setSaveButtonText('Saved!');
+      
+      // Test n8n API connection if provided
+      if (n8nApiUrl && n8nApiKey) {
+        testN8nApiConnection(n8nApiUrl, n8nApiKey).then(isConnected => {
+          if (isConnected) {
+            setStatusText(prev => prev + ' (n8n API connected)');
+          }
+        });
       }
-    }
-    
-    setTimeout(() => {
-      setSaveButtonText('Save Settings');
-    }, 2000);
+      
+      setTimeout(() => {
+        setSaveButtonText('Save Settings');
+      }, 2000);
+    });
   };
 
   // Show chat handler
